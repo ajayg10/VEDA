@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+
+# Local memory storage
+veda.db
+veda.faiss
+veda_id_map.json
+
+# IDE
+.vscode/
+.idea/
