@@ -49,3 +49,39 @@ class ExecutionResult(BaseModel):
     status:           StepStatus
     step_results:     List[StepResult]
     total_duration_ms: float    
+    
+class PlanRequest(BaseModel):
+    goal:           str
+    memory_context: str = ""
+
+class RetrieveRequest(BaseModel):
+    goal: str
+    k:    int = 3
+
+class MemoryEntry(BaseModel):
+    goal:       str
+    plan_json:  str
+    succeeded:  bool
+    created_at: str
+    score:      float
+
+class StoreRequest(BaseModel):
+    goal:   str
+    plan:   ExecutionPlan
+    result: ExecutionResult | None = None
+
+class HealthResponse(BaseModel):
+    service: str
+    status:  str = "ok"
+
+class RunRequest(BaseModel):
+    goal:         str
+    plan:         ExecutionPlan | None = None
+    auto_execute: bool = False
+
+class OrchestrationResult(BaseModel):
+    goal:      str
+    memories:  List[MemoryEntry]     = []
+    plan:      ExecutionPlan  | None = None
+    result:    ExecutionResult | None = None
+    executed:  bool = False    
