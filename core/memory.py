@@ -10,10 +10,10 @@ from shared.models import ExecutionPlan, ExecutionResult, StepStatus
 MODEL_NAME  = "all-MiniLM-L6-v2"   # 384-dim, ~80MB, CPU-friendly
 EMBED_DIM   = 384
 TOP_K       = 3
-DB_PATH     = "veda.db"
-FAISS_PATH  = "veda.faiss"
-ID_MAP_PATH = "veda_id_map.json"    # FAISS int position → SQLite row id
 
+DB_PATH     = os.getenv("DB_PATH",      "veda.db")
+FAISS_PATH  = os.getenv("FAISS_PATH",   "veda.faiss")
+ID_MAP_PATH = os.getenv("ID_MAP_PATH",  "veda_id_map.json")
 
 class MemoryManager:
     """

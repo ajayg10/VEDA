@@ -1,0 +1,111 @@
+
+# Named volume for Memory service persistence.
+# Lives at /var/lib/docker/volumes/veda_memory-data on the host.
+# Survives container restarts, rebuilds, and even 'docker compose down'.
+# Only destroyed by 'docker compose down -v'.
+volumes:
+  memory-data:
+
+# All services share this network.
+# Containers reach each other by service name (e.g. http://planner:8001).
+# No localhost, no hardcoded IPs.
+networks:
+  veda-net:
+    driver: bridge
+
+services:
+
+  # ── Nginx ───────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"       # expose to host; all other services are internal only
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    networks:
+      - veda-net
+    restart: unless-stopped
+
+  # ── Orchestrator ─────────────────────────────────────────────────────────
+  orchestrator:
+    build:
+      context: .                              # project root = build context
+      dockerfile: services/orchestrator/Dockerfile
+    env_file: .env
+    environment:
+      - PLANNER_URL=http://planner:8001       # Docker DNS resolves 'planner'
+      - MEMORY_URL=http://memory:8002
+      - EXECUTOR_URL=http://executor:8003
+    depends_on:
+      planner:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+      executor:
+        condition: service_healthy
+    networks:
+      - veda-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Planner ──────────────────────────────────────────────────────────────
+  planner:
+    build:
+      context: .
+      dockerfile: services/planner/Dockerfile
+    env_file: .env
+    networks:
+      - veda-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ── Memory ───────────────────────────────────────────────────────────────
+  memory:
+    build:
+      context: .
+      dockerfile: services/memory/Dockerfile
+    env_file: .env
+    volumes:
+      - memory-data:/data   # named volume mounted at /data inside container
+    networks:
+      - veda-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s    # longer — model loads at startup
+
+  # ── Executor ─────────────────────────────────────────────────────────────
+  executor:
+    build:
+      context: .
+      dockerfile: services/executor/Dockerfile
+    env_file: .env
+    networks:
+      - veda-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
