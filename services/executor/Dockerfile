@@ -8,8 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir --timeout 1000 --retries 5 -r requirements-base.txt
 
 COPY shared/ ./shared/
 COPY core/executor.py ./core/executor.py

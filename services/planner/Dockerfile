@@ -6,8 +6,8 @@ WORKDIR /app
 
 # Install deps first — Docker caches this layer separately.
 # If only source code changes, this layer is reused → faster rebuilds.
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir --timeout 1000 --retries 5 -r requirements-base.txt
 
 # Copy only what this service needs.
 # Build context is the project root (set in docker-compose.yml).

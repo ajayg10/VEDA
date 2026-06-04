@@ -4,10 +4,10 @@ import sqlite3
 import numpy as np
 import faiss
 from datetime import datetime
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from shared.models import ExecutionPlan, ExecutionResult, StepStatus
 
-MODEL_NAME  = "all-MiniLM-L6-v2"   # 384-dim, ~80MB, CPU-friendly
+MODEL_NAME = "BAAI/bge-small-en-v1.5"       # 384-dim, ~80MB, CPU-friendly
 EMBED_DIM   = 384
 TOP_K       = 3
 
@@ -33,7 +33,11 @@ class MemoryManager:
     """
 
     def __init__(self) -> None:
-        self.model = SentenceTransformer(MODEL_NAME)
+        # fastembed downloads the ONNX model (~25MB) on first run,
+        # cached at ~/.cache/fastembed/ — much lighter than PyTorch
+        self.model = TextEmbedding(
+            model_name=MODEL_NAME
+        )
         self._init_db()
         self._load_faiss()
 
@@ -73,11 +77,10 @@ class MemoryManager:
 
     def _embed(self, text: str) -> np.ndarray:
         """
-        Convert text → 384-dim float32 vector, then L2-normalise.
-        Normalisation makes inner product equal to cosine similarity,
-        so vector length doesn't bias the similarity score.
+        Convert text → 384-dim float32 vector, L2-normalised.
+        fastembed returns a generator — convert to list first.
         """
-        vec = self.model.encode([text], convert_to_numpy=True).astype("float32")
+        vec = np.array(list(self.model.embed([text])), dtype="float32")
         faiss.normalize_L2(vec)
         return vec
 

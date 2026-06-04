@@ -2,27 +2,28 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Layer 1: Base packages (fast — no large deps)
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir --timeout 300 -r requirements-base.txt
 
-# Pre-download the embedding model during image build.
-# This makes the image larger (~300MB) but means zero delay at
-# container startup — no runtime download needed.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+# Layer 2: Memory-specific heavy packages (cached separately)
+# Only re-downloads if requirements-memory.txt changes — not when base changes
+COPY requirements-memory.txt .
+RUN pip install --no-cache-dir --timeout 300 -r requirements-memory.txt
+
+# Layer 3: Pre-bake the ONNX model into the image
+RUN python -c "from fastembed import TextEmbedding; list(TextEmbedding('BAAI/bge-small-en-v1.5').embed(['test']))"
 
 COPY shared/ ./shared/
 COPY core/memory.py ./core/memory.py
 COPY core/__init__.py ./core/__init__.py
 COPY services/memory/ ./services/memory/
 
-# /data is the mount point for the named volume.
-# FAISS index and SQLite DB persist here across container restarts.
-RUN mkdir -p /data
+RUN useradd -m veda && mkdir -p /data && chown veda:veda /data
 VOLUME ["/data"]
 
 EXPOSE 8002
 
-RUN useradd -m veda
 USER veda
 
 ENV DB_PATH=/data/veda.db

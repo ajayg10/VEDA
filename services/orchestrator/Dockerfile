@@ -2,8 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-base.txt .
+RUN pip install --no-cache-dir --timeout 1000 --retries 5 -r requirements-base.txt
 
 COPY shared/ ./shared/
 COPY core/__init__.py ./core/__init__.py
