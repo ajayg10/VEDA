@@ -5,6 +5,8 @@
 # Only destroyed by 'docker compose down -v'.
 volumes:
   memory-data:
+  prometheus_data:
+  grafana_data:
 
 # All services share this network.
 # Containers reach each other by service name (e.g. http://planner:8001).
@@ -28,6 +30,37 @@ services:
     networks:
       - veda-net
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: veda-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+    ports:
+      - "9090:9090"
+    networks:
+      - veda-net
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: veda-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=veda123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - veda-net
+    restart: unless-stopped
+    depends_on:
+      - prometheus  
 
   # ── Orchestrator ─────────────────────────────────────────────────────────
   orchestrator:
