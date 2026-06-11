@@ -6,3 +6,4 @@ httpx>=0.28.0
 fastapi>=0.100.0
 uvicorn[standard]>=0.20.0
 anyio>=4.0.0
+prometheus-fastapi-instrumenter==6.1.0

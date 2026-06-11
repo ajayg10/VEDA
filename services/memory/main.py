@@ -27,6 +27,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="VEDA — Memory Service", version="0.4.0", lifespan=lifespan)
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/health", response_model=HealthResponse)
 async def health():

@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: orchestrator
+    static_configs:
+      - targets: ["orchestrator:8000"]
+
+  - job_name: planner
+    static_configs:
+      - targets: ["planner:8001"]
+
+  - job_name: memory
+    static_configs:
+      - targets: ["memory:8002"]
+
+  - job_name: executor
+    static_configs:
+      - targets: ["executor:8003"]

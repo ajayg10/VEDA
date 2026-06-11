@@ -18,6 +18,12 @@ from shared.models import (
 ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://localhost:8000")
 console = Console()
 
+api_key = os.getenv("VEDA_API_KEY", "")
+headers = {"X-API-Key": api_key} if api_key else {}
+client = httpx.AsyncClient(
+        base_url="http://localhost", 
+        headers=headers, 
+        timeout=120)
 
 def render_plan(plan: ExecutionPlan) -> None:
     complexity_color = {"low": "green", "medium": "yellow", "high": "red"}.get(

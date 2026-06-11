@@ -8,12 +8,17 @@ from typing import List
 from fastapi import FastAPI, HTTPException
 import httpx
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
 from shared.models import (
     RunRequest, OrchestrationResult,
     PlanRequest, RetrieveRequest, StoreRequest,
     MemoryEntry, ExecutionPlan, ExecutionResult,
     HealthResponse,
 )
+
+
 
 # Service URLs — override via .env for Docker/cloud deployments
 PLANNER_URL  = os.getenv("PLANNER_URL",  "http://localhost:8001")
@@ -22,6 +27,27 @@ EXECUTOR_URL = os.getenv("EXECUTOR_URL", "http://localhost:8003")
 
 app = FastAPI(title="VEDA — Orchestrator", version="0.4.0")
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app)
+
+from prometheus_client import Counter, Histogram
+
+GOALS_TOTAL    = Counter("veda_goals_total", "Total goals received")
+GOALS_EXECUTED = Counter("veda_goals_executed_total", "Goals executed")
+GOALS_FAILED   = Counter("veda_goals_failed_total", "Goals that failed")
+PLAN_LATENCY   = Histogram("veda_plan_duration_seconds", "Plan generation time")
+EXEC_LATENCY   = Histogram("veda_exec_duration_seconds", "Execution time")
+
+API_KEY = os.getenv("VEDA_API_KEY", "")
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    if request.url.path == "/health":
+        return await call_next(request)   # health check always passes
+    key = request.headers.get("X-API-Key", "")
+    if API_KEY and key != API_KEY:
+        return JSONResponse(status_code=401, content={"error": "Invalid or missing API key"})
+    return await call_next(request)
 
 def _format_context(memories: List[MemoryEntry]) -> str:
     """Convert MemoryEntry list into a prompt-ready string for the Planner."""
