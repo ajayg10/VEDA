@@ -43,10 +43,30 @@ API_KEY = os.getenv("VEDA_API_KEY", "")
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     if request.url.path == "/health":
-        return await call_next(request)   # health check always passes
+        return await call_next(request)
+    
     key = request.headers.get("X-API-Key", "")
-    if API_KEY and key != API_KEY:
-        return JSONResponse(status_code=401, content={"error": "Invalid or missing API key"})
+    if not key:
+        return JSONResponse(status_code=401, content={"error": "Missing API key"})
+    
+    # Validate against Memory service's user table
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{MEMORY_URL}/users/validate",
+                json={"api_key": key},
+                timeout=5,
+            )
+            data = resp.json()
+            if not data.get("valid"):
+                return JSONResponse(status_code=401, content={"error": "Invalid API key"})
+            
+            # Attach user info to request state for use in handlers
+            request.state.user_id = data["user_id"]
+            request.state.user_name = data["name"]
+    except Exception:
+        return JSONResponse(status_code=503, content={"error": "Auth service unavailable"})
+    
     return await call_next(request)
 
 def _format_context(memories: List[MemoryEntry]) -> str:
@@ -71,21 +91,21 @@ async def health():
 
 
 @app.post("/run", response_model=OrchestrationResult)
-async def run(request: RunRequest):
+async def run(req: RunRequest, request: Request):
+    user_id = request.state.user_id
+    GOALS_TOTAL.inc()
+   
     """
     Central workflow endpoint. Two modes:
-
     Mode A — plan only (request.plan is None, auto_execute=False):
       1. Retrieve similar memories from Memory service
       2. Format memory context
       3. Call Planner → get ExecutionPlan
       4. Return plan + memories (not executed)
-
     Mode B — execute (request.plan is provided, auto_execute=True):
       1. Call Executor with the provided plan
       2. Store result in Memory service
       3. Return plan + result
-
     The CLI calls Mode A first (show plan → user confirms), then Mode B.
     This separation means the plan is never regenerated during execution —
     exactly what the user approved is what gets run.
@@ -93,15 +113,16 @@ async def run(request: RunRequest):
     async with httpx.AsyncClient(timeout=60.0) as client:
 
         # ── Mode A: Plan ──────────────────────────────────────────────────
-        if request.plan is None:
+        if req.plan is None:
             # Step 1: retrieve memories
             memories: List[MemoryEntry] = []
             try:
                 resp = await client.post(
                     f"{MEMORY_URL}/retrieve",
-                    json=RetrieveRequest(goal=request.goal).model_dump(),
+                    json=RetrieveRequest(goal=req.goal, user_id=user_id).model_dump(),
                 )
-                memories = [MemoryEntry(**m) for m in resp.json()]
+                memories = [MemoryEntry(**m) for m in resp.json().get("memories", [])]
+
             except Exception:
                 pass   # memory failure is non-fatal — planning continues
 
@@ -111,7 +132,7 @@ async def run(request: RunRequest):
                 resp = await client.post(
                     f"{PLANNER_URL}/plan",
                     json=PlanRequest(
-                        goal=request.goal,
+                        goal=req.goal,
                         memory_context=context,
                     ).model_dump(),
                 )
@@ -126,19 +147,19 @@ async def run(request: RunRequest):
 
             plan = ExecutionPlan(**resp.json())
             return OrchestrationResult(
-                goal=request.goal,
+                goal=req.goal,
                 memories=memories,
                 plan=plan,
                 executed=False,
             )
 
         # ── Mode B: Execute ───────────────────────────────────────────────
-        if request.auto_execute and request.plan is not None:
+        if req.auto_execute and req.plan is not None:
             # Step 3: execute the exact plan the user approved
             try:
                 resp = await client.post(
                     f"{EXECUTOR_URL}/execute",
-                    json=request.plan.model_dump(),
+                    json=req.plan.model_dump(),
                 )
             except httpx.ConnectError:
                 raise HTTPException(
@@ -153,21 +174,22 @@ async def run(request: RunRequest):
 
             # Step 4: persist to memory (non-fatal if it fails)
             try:
-                await client.post(
+                 await client.post(
                     f"{MEMORY_URL}/store",
                     json=StoreRequest(
-                        goal=request.goal,
-                        plan=request.plan,
+                        goal=req.goal,
+                        plan=req.plan,
                         result=result,
+                        user_id=user_id,
                     ).model_dump(),
                 )
             except Exception:
                 pass
 
             return OrchestrationResult(
-                goal=request.goal,
+                goal=req.goal,
                 memories=[],   # not re-fetched in execute mode
-                plan=request.plan,
+                plan=req.plan,
                 result=result,
                 executed=True,
             )

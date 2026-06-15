@@ -85,3 +85,22 @@ class OrchestrationResult(BaseModel):
     plan:      ExecutionPlan  | None = None
     result:    ExecutionResult | None = None
     executed:  bool = False    
+    
+class CreateUserRequest(BaseModel):
+    name:  str
+    email: str
+
+class UserResponse(BaseModel):
+    id:         str
+    name:       str
+    email:      str
+    api_key:    str
+    created_at: str
+
+class ValidateKeyRequest(BaseModel):
+    api_key: str
+
+class ValidateKeyResponse(BaseModel):
+    valid:   bool
+    user_id: str = ""
+    name:    str = ""    

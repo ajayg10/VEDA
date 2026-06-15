@@ -9,7 +9,8 @@ from typing import List
 from fastapi import FastAPI
 from shared.models import (
     RetrieveRequest, StoreRequest,
-    MemoryEntry, HealthResponse,
+    MemoryEntry, HealthResponse, ValidateKeyResponse,
+    CreateUserRequest, UserResponse, ValidateKeyRequest,
 )
 from core.memory import MemoryManager
 
@@ -54,3 +55,15 @@ async def store(request: StoreRequest):
     Failures here should never crash the caller (Orchestrator wraps in try/except).
     """
     _memory.store(request.goal, request.plan, request.result)
+    
+@app.post("/users", response_model=UserResponse)
+async def create_user(req: CreateUserRequest):
+    user = _memory.create_user(req.name, req.email)
+    return UserResponse(**user)
+
+@app.post("/users/validate", response_model=ValidateKeyResponse)
+async def validate_key(req: ValidateKeyRequest):
+    user = _memory.get_user_by_api_key(req.api_key)
+    if not user:
+        return ValidateKeyResponse(valid=False)
+    return ValidateKeyResponse(valid=True, user_id=user["id"], name=user["name"])    

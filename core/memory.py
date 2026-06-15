@@ -1,6 +1,8 @@
 import os
 import json
 import sqlite3
+import secrets
+import uuid
 import numpy as np
 import faiss
 from datetime import datetime
@@ -33,8 +35,6 @@ class MemoryManager:
     """
 
     def __init__(self) -> None:
-        # fastembed downloads the ONNX model (~25MB) on first run,
-        # cached at ~/.cache/fastembed/ — much lighter than PyTorch
         self.model = TextEmbedding(
             model_name=MODEL_NAME
         )
@@ -47,6 +47,7 @@ class MemoryManager:
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS memories (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT    NOT NULL DEFAULT 'default',
                 goal        TEXT    NOT NULL,
                 plan_json   TEXT    NOT NULL,
                 result_json TEXT,
@@ -54,14 +55,26 @@ class MemoryManager:
                 created_at  TEXT    NOT NULL
             )
         """)
+
+        # Add user_id column if the table already existed without it
+        try:
+            self.conn.execute("ALTER TABLE memories ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default'")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id         TEXT PRIMARY KEY,
+                name       TEXT NOT NULL,
+                email      TEXT UNIQUE NOT NULL,
+                api_key    TEXT UNIQUE NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+
         self.conn.commit()
 
     def _load_faiss(self) -> None:
-        """
-        IndexFlatIP = Inner Product index.
-        For L2-normalised vectors, inner product == cosine similarity.
-        Higher score = more semantically similar. Range: [-1, 1].
-        """
         if os.path.exists(FAISS_PATH) and os.path.exists(ID_MAP_PATH):
             self.index  = faiss.read_index(FAISS_PATH)
             with open(ID_MAP_PATH) as f:
@@ -76,22 +89,48 @@ class MemoryManager:
             json.dump(self.id_map, f)
 
     def _embed(self, text: str) -> np.ndarray:
-        """
-        Convert text → 384-dim float32 vector, L2-normalised.
-        fastembed returns a generator — convert to list first.
-        """
         vec = np.array(list(self.model.embed([text])), dtype="float32")
         faiss.normalize_L2(vec)
         return vec
 
+    # ── User management ────────────────────────────────────────────────
+
+    def create_user(self, name: str, email: str) -> dict:
+        """Create a new user and generate their API key."""
+        user_id    = str(uuid.uuid4())
+        api_key    = "veda_" + secrets.token_hex(24)
+        created_at = datetime.utcnow().isoformat()
+
+        self.conn.execute(
+            "INSERT INTO users (id, name, email, api_key, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, name, email, api_key, created_at)
+        )
+        self.conn.commit()
+
+        return {"id": user_id, "name": name, "email": email, "api_key": api_key, "created_at": created_at}
+
+    def get_user_by_api_key(self, api_key: str) -> dict | None:
+        """Look up a user by their API key. Returns None if not found."""
+        row = self.conn.execute(
+            "SELECT id, name, email, api_key, created_at FROM users WHERE api_key = ?",
+            (api_key,)
+        ).fetchone()
+        if not row:
+            return None
+        return {"id": row["id"], "name": row["name"], "email": row["email"],
+                "api_key": row["api_key"], "created_at": row["created_at"]}
+
+    # ── Memory store/retrieve ──────────────────────────────────────────
+
     def store(
         self,
-        goal:   str,
-        plan:   ExecutionPlan,
-        result: ExecutionResult | None = None,
+        goal:    str,
+        plan:    ExecutionPlan,
+        result:  ExecutionResult | None = None,
+        user_id: str = "default",
     ) -> None:
         """
-        Embed goal and persist to FAISS + SQLite.
+        Embed goal and persist to FAISS + SQLite, scoped to a user.
         Called after every execution so memory grows with real usage.
         """
         succeeded   = 0
@@ -102,9 +141,10 @@ class MemoryManager:
             result_json = result.model_dump_json()
 
         cursor = self.conn.execute(
-            """INSERT INTO memories (goal, plan_json, result_json, succeeded, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
+            """INSERT INTO memories (user_id, goal, plan_json, result_json, succeeded, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
             (
+                user_id,
                 goal,
                 plan.model_dump_json(),
                 result_json,
@@ -121,16 +161,18 @@ class MemoryManager:
         self.id_map[faiss_pos] = sqlite_id
         self._save_faiss()
 
-    def retrieve(self, goal: str, k: int = TOP_K) -> list[dict]:
+    def retrieve(self, goal: str, k: int = TOP_K, user_id: str = "default") -> list[dict]:
         """
-        Find k most semantically similar past goals.
-        Returns [] if index is empty.
+        Find k most semantically similar past goals for this user.
+        FAISS search is global, then we filter by user_id at the SQLite layer.
+        Returns [] if index is empty or no matches belong to this user.
         """
         if self.index.ntotal == 0:
             return []
 
-        vec             = self._embed(goal)
-        actual_k        = min(k, self.index.ntotal)
+        vec = self._embed(goal)
+        # Search wider than k since we'll filter by user_id afterward
+        actual_k        = min(k * 5, self.index.ntotal)
         scores, indices = self.index.search(vec, actual_k)
 
         results = []
@@ -141,8 +183,8 @@ class MemoryManager:
             if sqlite_id is None:
                 continue
             row = self.conn.execute(
-                "SELECT goal, plan_json, succeeded, created_at FROM memories WHERE id = ?",
-                (sqlite_id,),
+                "SELECT goal, plan_json, succeeded, created_at FROM memories WHERE id = ? AND user_id = ?",
+                (sqlite_id, user_id),
             ).fetchone()
             if row:
                 results.append({
@@ -152,13 +194,11 @@ class MemoryManager:
                     "created_at":row["created_at"],
                     "score":     float(score),
                 })
+            if len(results) >= k:
+                break
         return results
 
     def format_context(self, memories: list[dict]) -> str:
-        """
-        Format retrieved memories into a prompt-ready string.
-        Injected before the system prompt so the LLM sees past experience first.
-        """
         if not memories:
             return ""
 
