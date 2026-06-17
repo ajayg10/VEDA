@@ -116,7 +116,11 @@ services:
       dockerfile: services/memory/Dockerfile
     env_file: .env
     volumes:
-      - memory-data:/data   # named volume mounted at /data inside container
+      - memory-data:/data
+    environment:
+      - DB_PATH=/data/veda.db
+      - FAISS_PATH=/data/veda.faiss
+      - ID_MAP_PATH=/data/veda_id_map.json   # named volume mounted at /data inside container
     networks:
       - veda-net
     restart: unless-stopped
