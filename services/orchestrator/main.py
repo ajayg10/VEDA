@@ -146,6 +146,44 @@ async def run(req: RunRequest, request: Request):
                 raise HTTPException(status_code=502, detail=f"Planner: {resp.text}")
 
             plan = ExecutionPlan(**resp.json())
+
+            # ── Mode C: Plan + auto-execute in one shot ───────────────────
+            if req.auto_execute:
+                try:
+                    exec_resp = await client.post(
+                        f"{EXECUTOR_URL}/execute",
+                        json=plan.model_dump(),
+                    )
+                except httpx.ConnectError:
+                    raise HTTPException(status_code=503, detail="Executor service unreachable.")
+
+                if exec_resp.status_code != 200:
+                    raise HTTPException(status_code=502, detail=f"Executor: {exec_resp.text}")
+
+                result = ExecutionResult(**exec_resp.json())
+
+                try:
+                    await client.post(
+                        f"{MEMORY_URL}/store",
+                        json=StoreRequest(
+                            goal=req.goal,
+                            plan=plan,
+                            result=result,
+                            user_id=user_id,
+                        ).model_dump(),
+                    )
+                except Exception:
+                    pass
+
+                GOALS_EXECUTED.inc()
+                return OrchestrationResult(
+                    goal=req.goal,
+                    memories=memories,
+                    plan=plan,
+                    result=result,
+                    executed=True,
+                )
+
             return OrchestrationResult(
                 goal=req.goal,
                 memories=memories,
