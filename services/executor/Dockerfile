@@ -2,10 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system tools the executor might shell out to
-# (git for git workflows, curl as fallback HTTP tool)
+# Install system tools + Docker CLI for sandboxed execution
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git curl \
+    git curl ca-certificates gnupg \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements-base.txt .
@@ -18,8 +21,5 @@ COPY core/tools/ ./core/tools/
 COPY services/executor/ ./services/executor/
 
 EXPOSE 8003
-
-RUN useradd -m veda
-USER veda
 
 CMD ["uvicorn", "services.executor.main:app", "--host", "0.0.0.0", "--port", "8003"]
