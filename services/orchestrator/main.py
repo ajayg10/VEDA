@@ -15,7 +15,7 @@ from shared.models import (
     RunRequest, OrchestrationResult,
     PlanRequest, RetrieveRequest, StoreRequest,
     MemoryEntry, ExecutionPlan, ExecutionResult,
-    HealthResponse,
+    HealthResponse, CreateUserRequest, UserResponse,
 )
 
 
@@ -42,7 +42,7 @@ API_KEY = os.getenv("VEDA_API_KEY", "")
 
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    if request.url.path == "/health":
+    if request.url.path in ("/health", "/register"):
         return await call_next(request)
     
     key = request.headers.get("X-API-Key", "")
@@ -88,6 +88,28 @@ def _format_context(memories: List[MemoryEntry]) -> str:
 @app.get("/health", response_model=HealthResponse)
 async def health():
     return HealthResponse(service="orchestrator")
+
+
+@app.post("/register", response_model=UserResponse)
+async def register(req: CreateUserRequest):
+    """
+    Public signup — no API key required, since this IS how a friend gets one.
+    Proxies straight to the Memory service, which generates the key and
+    persists the user row. Orchestrator never touches the DB directly.
+    """
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            resp = await client.post(
+                f"{MEMORY_URL}/users",
+                json=req.model_dump(),
+            )
+        except httpx.ConnectError:
+            raise HTTPException(status_code=503, detail="Memory service unreachable.")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"Memory: {resp.text}")
+
+    return UserResponse(**resp.json())
 
 
 @app.post("/run", response_model=OrchestrationResult)

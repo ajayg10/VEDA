@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VEDA — Get your API key</title>
+<style>
+  :root {
+    --bg: #0a0f0c;
+    --card: #111813;
+    --border: #1f2e24;
+    --green: #22c55e;
+    --green-dim: #16a34a;
+    --text: #e6f0ea;
+    --text-dim: #8aa394;
+    --error: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(circle at 50% 0%, #0f1a13 0%, #0a0f0c 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .logo {
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--green);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  h1 {
+    font-size: 22px;
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    margin-top: 16px;
+  }
+  input {
+    width: 100%;
+    background: #0d1410;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus {
+    border-color: var(--green);
+  }
+  button {
+    width: 100%;
+    background: var(--green);
+    color: #06150a;
+    border: none;
+    border-radius: 8px;
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 24px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+  button:hover { background: var(--green-dim); }
+  button:active { transform: scale(0.98); }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .error {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: var(--error);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    margin-top: 16px;
+    display: none;
+  }
+  .success-view { display: none; text-align: center; }
+  .check-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(34,197,94,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+  .key-box {
+    background: #0d1410;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 13px;
+    word-break: break-all;
+    margin: 20px 0 8px;
+    text-align: left;
+    color: var(--green);
+  }
+  .copy-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    margin-top: 0;
+    font-size: 12px;
+    padding: 8px;
+  }
+  .copy-btn:hover { background: var(--border); color: var(--text); }
+  .warn-note {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .goto-chat {
+    display: block;
+    text-align: center;
+    margin-top: 20px;
+    color: var(--green);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .goto-chat:hover { text-decoration: underline; }
+  .already {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  .already a { color: var(--green); text-decoration: none; }
+  .already a:hover { text-decoration: underline; }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(6,21,10,0.3);
+    border-top-color: #06150a;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo">VEDA</div>
+  <h1>Get your API key</h1>
+  <p class="subtitle">Virtual Execution & Decision Architecture<br>Create an account to start chatting with VEDA.</p>
+
+  <form id="signupForm">
+    <label for="name">Name</label>
+    <input type="text" id="name" required placeholder="Your name" autocomplete="name">
+
+    <label for="email">Email</label>
+    <input type="email" id="email" required placeholder="you@example.com" autocomplete="email">
+
+    <div class="error" id="errorBox"></div>
+
+    <button type="submit" id="submitBtn">Create account</button>
+  </form>
+
+  <div class="success-view" id="successView">
+    <div class="check-icon">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"></polyline>
+      </svg>
+    </div>
+    <h1 style="font-size:18px;">You're in</h1>
+    <p class="subtitle" style="margin-bottom:0;">Here's your API key — copy it now.</p>
+    <div class="key-box" id="keyBox"></div>
+    <button class="copy-btn" id="copyBtn" type="button">Copy key</button>
+    <p class="warn-note">This key won't be shown again. Store it somewhere safe — you'll paste it into the VEDA chat to log in.</p>
+    <a class="goto-chat" href="/index.html">Go to chat →</a>
+  </div>
+
+  <p class="already" id="alreadyLink">Already have a key? <a href="/index.html">Go to chat</a></p>
+</div>
+
+<script>
+const form = document.getElementById('signupForm');
+const errorBox = document.getElementById('errorBox');
+const submitBtn = document.getElementById('submitBtn');
+const successView = document.getElementById('successView');
+const keyBox = document.getElementById('keyBox');
+const copyBtn = document.getElementById('copyBtn');
+const alreadyLink = document.getElementById('alreadyLink');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorBox.style.display = 'none';
+
+  const name = document.getElementById('name').value.trim();
+  const email = document.getElementById('email').value.trim();
+
+  if (!name || !email) return;
+
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner"></span>Creating...';
+
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || data.error || 'Something went wrong');
+    }
+
+    keyBox.textContent = data.api_key;
+    form.style.display = 'none';
+    alreadyLink.style.display = 'none';
+    successView.style.display = 'block';
+
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create account';
+  }
+});
+
+copyBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(keyBox.textContent);
+  copyBtn.textContent = 'Copied!';
+  setTimeout(() => { copyBtn.textContent = 'Copy key'; }, 1500);
+});
+</script>
+
+</body>
+</html>
