@@ -6,7 +6,8 @@ load_dotenv()
 
 from contextlib import asynccontextmanager
 from typing import List
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+
 from shared.models import (
     RetrieveRequest, StoreRequest,
     MemoryEntry, HealthResponse, ValidateKeyResponse,
@@ -58,7 +59,10 @@ async def store(request: StoreRequest):
     
 @app.post("/users", response_model=UserResponse)
 async def create_user(req: CreateUserRequest):
-    user = _memory.create_user(req.name, req.email)
+    try:
+        user = _memory.create_user(req.name, req.email)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
     return UserResponse(**user)
 
 @app.post("/users/validate", response_model=ValidateKeyResponse)

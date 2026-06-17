@@ -101,11 +101,14 @@ class MemoryManager:
         api_key    = "veda_" + secrets.token_hex(24)
         created_at = datetime.utcnow().isoformat()
 
-        self.conn.execute(
-            "INSERT INTO users (id, name, email, api_key, created_at) VALUES (?, ?, ?, ?, ?)",
-            (user_id, name, email, api_key, created_at)
-        )
-        self.conn.commit()
+        try:
+            self.conn.execute(
+                "INSERT INTO users (id, name, email, api_key, created_at) VALUES (?, ?, ?, ?, ?)",
+                (user_id, name, email, api_key, created_at)
+            )
+            self.conn.commit()
+        except sqlite3.IntegrityError:
+            raise ValueError(f"Email '{email}' is already registered")
 
         return {"id": user_id, "name": name, "email": email, "api_key": api_key, "created_at": created_at}
 

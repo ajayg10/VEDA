@@ -92,11 +92,6 @@ async def health():
 
 @app.post("/register", response_model=UserResponse)
 async def register(req: CreateUserRequest):
-    """
-    Public signup — no API key required, since this IS how a friend gets one.
-    Proxies straight to the Memory service, which generates the key and
-    persists the user row. Orchestrator never touches the DB directly.
-    """
     async with httpx.AsyncClient(timeout=10.0) as client:
         try:
             resp = await client.post(
@@ -106,10 +101,14 @@ async def register(req: CreateUserRequest):
         except httpx.ConnectError:
             raise HTTPException(status_code=503, detail="Memory service unreachable.")
 
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Memory: {resp.text}")
+    if resp.status_code == 200:
+        return UserResponse(**resp.json())
 
-    return UserResponse(**resp.json())
+    try:
+        detail = resp.json().get("detail", resp.text)
+    except Exception:
+        detail = resp.text
+    raise HTTPException(status_code=resp.status_code, detail=detail)
 
 
 @app.post("/run", response_model=OrchestrationResult)
