@@ -22,9 +22,13 @@ Available tools and their parameter schemas:
 - file_read      → {"filename": "string"}
 - http_request   → {"method": "GET|POST|PUT|DELETE", "url": "string", "headers": {}, "body": {}}
 - python_script  → {"code": "string"}
-  In python_script, step_outputs[N] contains the raw output of step N.
-  For http_request steps, step_outputs[N] is the raw JSON response body.
-  Example: data = json.loads(step_outputs[1]); print(data['bitcoin']['usd'])
+  CRITICAL PYTHON RULE: ALL Python code MUST be in exactly ONE python_script step.
+  NEVER use multiple python_script steps. NEVER split a Python program across steps.
+  Variables do NOT persist between steps — a function defined in step 1 is GONE by step 2.
+  If a goal requires Python, write the COMPLETE program in a single step.
+  Wrong: step1=define function, step2=call function (BROKEN - function not visible in step2)
+  Right: step1=complete program with definition AND call together (CORRECT)
+  Use step_outputs[N] to read output from a prior http_request or shell_command step N.
 - no_op          → {"note": "string"}
 
 Required JSON structure:
@@ -51,6 +55,8 @@ Rules:
 - estimated_complexity must be exactly: low, medium, or high.
 - requires_confirmation = true when any step deletes, overwrites, or sends data externally.
 - Output ONLY the JSON object. Nothing else.
+ENFORCEMENT: If you are about to create more than one python_script step, STOP and
+combine them into one. A plan with two python_script steps is always wrong.
 """
 
 
