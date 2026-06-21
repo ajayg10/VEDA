@@ -712,47 +712,72 @@ async function send() {
 
 // ── Voice input ──
 function toggleMic() {
-  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-    alert('Voice input not supported in this browser. Try Chrome.');
-    return;
-  }
-
   if (isRecording) {
     recognition?.stop();
     return;
   }
 
+  // Check for support
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.lang = 'en-IN';
-  recognition.interimResults = false;
-  recognition.maxAlternatives = 1;
+  if (!SpeechRecognition) {
+    alert('Voice input not supported. Please use Chrome or Edge.');
+    return;
+  }
 
-  recognition.onstart = () => {
-    isRecording = true;
-    document.getElementById('mic-btn').classList.add('recording');
-    document.getElementById('mic-btn').textContent = '⏹';
-  };
+  // Check for HTTPS
+  if (location.protocol !== 'https:') {
+    alert('Voice input requires HTTPS. Please use https://app.agdev10.online');
+    return;
+  }
 
-  recognition.onresult = (e) => {
-    const transcript = e.results[0][0].transcript;
-    document.getElementById('prompt').value = transcript;
-    autoResize(document.getElementById('prompt'));
-  };
+  // Request mic permission explicitly first
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(() => {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
 
-  recognition.onend = () => {
-    isRecording = false;
-    document.getElementById('mic-btn').classList.remove('recording');
-    document.getElementById('mic-btn').textContent = '🎤';
-    recognition = null;
-  };
+      recognition.onstart = () => {
+        isRecording = true;
+        document.getElementById('mic-btn').classList.add('recording');
+        document.getElementById('mic-btn').textContent = '⏹';
+      };
 
-  recognition.onerror = (e) => {
-    console.error('Speech error', e);
-    recognition.stop();
-  };
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        document.getElementById('prompt').value = transcript;
+        autoResize(document.getElementById('prompt'));
+        // Auto-send after voice input
+        setTimeout(() => send(), 500);
+      };
 
-  recognition.start();
+      recognition.onerror = (e) => {
+        console.error('Speech error:', e.error);
+        isRecording = false;
+        document.getElementById('mic-btn').classList.remove('recording');
+        document.getElementById('mic-btn').textContent = '🎤';
+        if (e.error === 'not-allowed') {
+          alert('Microphone access denied. Please allow mic access in browser settings.');
+        } else if (e.error === 'no-speech') {
+          alert('No speech detected. Please try again.');
+        }
+      };
+
+      recognition.onend = () => {
+        isRecording = false;
+        document.getElementById('mic-btn').classList.remove('recording');
+        document.getElementById('mic-btn').textContent = '🎤';
+        recognition = null;
+      };
+
+      recognition.start();
+    })
+    .catch((err) => {
+      alert('Microphone access denied. Please allow microphone access and try again.');
+      console.error('Mic permission error:', err);
+    });
 }
 
 // ── Init ──
