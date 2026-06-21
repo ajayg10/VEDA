@@ -734,9 +734,9 @@ function toggleMic() {
   navigator.mediaDevices.getUserMedia({ audio: true })
     .then(() => {
       recognition = new SpeechRecognition();
-      recognition.lang = 'en-IN';
-      recognition.interimResults = false;
-      recognition.continuous = false;
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = true;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
@@ -746,12 +746,13 @@ function toggleMic() {
       };
 
       recognition.onresult = (e) => {
-        const transcript = e.results[0][0].transcript;
-        document.getElementById('prompt').value = transcript;
-        autoResize(document.getElementById('prompt'));
-        // Auto-send after voice input
-        setTimeout(() => send(), 500);
-      };
+  let transcript = '';
+  for (let i = e.resultIndex; i < e.results.length; i++) {
+    transcript += e.results[i][0].transcript;
+  }
+  document.getElementById('prompt').value = transcript;
+  autoResize(document.getElementById('prompt'));
+};
 
       recognition.onerror = (e) => {
         console.error('Speech error:', e.error);
