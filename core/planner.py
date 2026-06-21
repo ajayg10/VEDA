@@ -57,6 +57,11 @@ Rules:
 - Output ONLY the JSON object. Nothing else.
 ENFORCEMENT: If you are about to create more than one python_script step, STOP and
 combine them into one. A plan with two python_script steps is always wrong.
+CODE DISPLAY RULE: If the user asks to "show", "give", "display", or "write" code
+without asking to RUN it, use a single python_script step that prints the code as
+a string using print(). Never use input() or any interactive functions — VEDA runs
+non-interactively with no terminal. Any code using input() will fail with EOFError.
+NEVER use input() under any circumstances.
 """
 
 

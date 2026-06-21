@@ -90,26 +90,22 @@ async def health():
     return HealthResponse(service="orchestrator")
 
 
-@app.post("/register", response_model=UserResponse)
+@app.post("/register")
 async def register(req: CreateUserRequest):
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
+    """Public endpoint — creates a new user and returns their API key."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 f"{MEMORY_URL}/users",
                 json=req.model_dump(),
             )
-        except httpx.ConnectError:
-            raise HTTPException(status_code=503, detail="Memory service unreachable.")
-
-    if resp.status_code == 200:
-        return UserResponse(**resp.json())
-
-    try:
-        detail = resp.json().get("detail", resp.text)
-    except Exception:
-        detail = resp.text
-    raise HTTPException(status_code=resp.status_code, detail=detail)
-
+            if resp.status_code == 400:
+                raise HTTPException(status_code=400, detail="Email already registered.")
+            if resp.status_code != 200:
+                raise HTTPException(status_code=502, detail="Registration failed.")
+            return resp.json()
+    except httpx.ConnectError:
+        raise HTTPException(status_code=503, detail="Memory service unreachable.")
 
 @app.post("/run", response_model=OrchestrationResult)
 async def run(req: RunRequest, request: Request):
