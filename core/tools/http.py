@@ -1,6 +1,7 @@
 import time
 import httpx
 from shared.models import StepResult, StepStatus
+from core.tools.base import BaseTool
 
 
 async def run_http_request(step_id: int, parameters: dict) -> StepResult:
@@ -54,3 +55,15 @@ async def run_http_request(step_id: int, parameters: dict) -> StepResult:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=f"Request error: {e}")
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
+
+class HttpTool(BaseTool):
+
+    name = "http_request"
+
+    description = "HTTP Requests"
+
+    async def execute(self, step, context=None):
+        return await run_http_request(
+            step.step_id,
+            step.parameters,
+        )    

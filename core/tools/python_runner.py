@@ -2,6 +2,8 @@ import sys
 import io
 import time
 from shared.models import StepResult, StepStatus
+from core.tools.base import BaseTool
+
 
 _BLOCKED = {"open", "eval", "exec", "compile"}
 
@@ -48,3 +50,16 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=f"{type(e).__name__}: {e}")
     finally:
         sys.stdout = old_stdout
+
+
+class PythonTool(BaseTool):
+
+    name = "python_script"
+    description = "Execute Python code"
+
+    async def execute(self, step, context=None):
+        return await run_python_script(
+            step.step_id,
+            step.parameters,
+            context,
+        )        

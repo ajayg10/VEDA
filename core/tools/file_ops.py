@@ -1,6 +1,7 @@
 import os
 import time
 from shared.models import StepResult, StepStatus
+from core.tools.base import BaseTool
 
 
 async def run_file_create(step_id: int, parameters: dict) -> StepResult:
@@ -53,3 +54,24 @@ async def run_file_read(step_id: int, parameters: dict) -> StepResult:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=f"File not found: {filename}")
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
+
+class FileCreateTool(BaseTool):
+
+    name = "file_create"
+
+    async def execute(self, step, context=None):
+        return await run_file_create(
+            step.step_id,
+            step.parameters,
+        )
+
+
+class FileReadTool(BaseTool):
+
+    name = "file_read"
+
+    async def execute(self, step, context=None):
+        return await run_file_read(
+            step.step_id,
+            step.parameters,
+        )    

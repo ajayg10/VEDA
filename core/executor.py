@@ -5,22 +5,14 @@ from shared.models import (
     StepResult, StepStatus, ExecutionResult,
     ToolType,
 )
-from core.tools.shell         import run_shell
-from core.tools.file_ops      import run_file_create, run_file_read
-from core.tools.http          import run_http_request
-from core.tools.python_runner import run_python_script
-
+from core.tools.registry import ToolRegistry
 
 class Executor:
 # Mapping of ToolType to their async handler functions
 
-    _HANDLERS = {
-        ToolType.SHELL_COMMAND: run_shell,
-        ToolType.FILE_CREATE:   run_file_create,
-        ToolType.FILE_READ:     run_file_read,
-        ToolType.HTTP_REQUEST:  run_http_request,
-        ToolType.PYTHON_SCRIPT: run_python_script,
-    }
+    def __init__(self):
+        self.registry = ToolRegistry()
+        self.registry.load_builtin_tools()
 
     def _topological_sort(self, steps: List[TaskStep]) -> List[TaskStep]:
         step_map   = {s.step_id: s for s in steps} 
@@ -84,17 +76,17 @@ class Executor:
         )
         
     async def _dispatch(self, step: TaskStep, context: dict) -> StepResult:
-        handler = self._HANDLERS.get(step.tool)
+        
+        tool = self.registry.get(step.tool.value)
 
-        if not handler:
+        if tool is None:
             return StepResult(
                 step_id=step.step_id,
                 status=StepStatus.SUCCESS,
-                output=step.parameters.get("note", f"no_op: {step.description}"),
+                output=step.parameters.get(
+                    "note",
+                    f"no_op: {step.description}"
+                ),
             )
 
-        # python_script needs context; other handlers ignore it
-        if step.tool == ToolType.PYTHON_SCRIPT:
-            return await handler(step.step_id, step.parameters, context)
-
-        return await handler(step.step_id, step.parameters)
+        return await tool.execute(step, context)

@@ -1,6 +1,8 @@
 import subprocess
 import time
 from shared.models import StepResult, StepStatus
+from core.tools.base import BaseTool
+
 
 SANDBOX_IMAGE = "python:3.11-alpine"
 TIMEOUT_SECONDS = 30
@@ -76,3 +78,14 @@ async def run_shell(step_id: int, parameters: dict) -> StepResult:
         )
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
+    
+class ShellTool(BaseTool):
+
+    name = "shell_command"
+    description = "Execute shell commands"
+
+    async def execute(self, step, context=None):
+        return await run_shell(
+            step.step_id,
+            step.parameters,
+        )    
