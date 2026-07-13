@@ -35,9 +35,9 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
             "--read-only",
             "--user", "65534",
             "--tmpfs", "/tmp:size=32m",
-            "-v", f"{tmp_path}:/script.py:ro",
+            "-v", f"{tmp_path}:/tmp/script.py:ro",
             SANDBOX_IMAGE,
-            "python", "/script.py"
+            "python", "/tmp/script.py"
         ]
 
         result = subprocess.run(
