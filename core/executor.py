@@ -1,11 +1,14 @@
 import time
 from typing import List, Set
+
+
 from shared.models import (
     ExecutionPlan, TaskStep,
     StepResult, StepStatus, ExecutionResult,
     ToolType,
 )
 from core.tools.registry import ToolRegistry
+from core.workspace import WorkspaceManager
 
 class Executor:
 # Mapping of ToolType to their async handler functions
@@ -39,11 +42,14 @@ class Executor:
         return sorted_out
 
     async def execute(self, plan: ExecutionPlan) -> ExecutionResult:
+        workspace = WorkspaceManager().create()
         sorted_steps  = self._topological_sort(plan.steps)
         results:       List[StepResult] = []
         failed_steps:  Set[int]         = set()
         # Maps step_id → raw_body (or output if no raw_body) for downstream steps
-        step_context:  dict             = {}
+        step_context = {
+            "workspace": str(workspace)
+        }
         start_total = time.time()
 
         for step in sorted_steps:

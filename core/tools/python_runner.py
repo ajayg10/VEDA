@@ -1,3 +1,12 @@
+import json
+import subprocess
+import time
+
+from shared.models import StepResult, StepStatus
+
+SANDBOX_IMAGE = "python:3.11-alpine"
+TIMEOUT_SECONDS = 30
+
 async def run_python_script(step_id: int, parameters: dict, context: dict | None = None) -> StepResult:
     code = parameters.get("code", "").strip()
     if not code:
