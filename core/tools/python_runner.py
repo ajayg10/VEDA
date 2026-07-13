@@ -1,7 +1,8 @@
 import json
 import subprocess
 import time
-
+from .base import BaseTool
+from shared.models import TaskStep
 from shared.models import StepResult, StepStatus
 
 SANDBOX_IMAGE = "python:3.11-alpine"
@@ -72,3 +73,21 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
         )
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
+    
+from .base import BaseTool
+from shared.models import TaskStep
+
+class PythonTool(BaseTool):
+    name = "python_script"
+    description = "Execute Python code inside the sandbox."
+
+    async def execute(
+        self,
+        step: TaskStep,
+        context: dict | None = None,
+    ) -> StepResult:
+        return await run_python_script(
+            step_id=step.step_id,
+            parameters=step.parameters,
+            context=context,
+        )
