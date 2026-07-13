@@ -22,7 +22,7 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
 
     start = time.time()
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, dir="/tmp") as f:
         f.write(full_code)
         tmp_path = f.name
 
