@@ -79,3 +79,19 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
     finally:
         os.unlink(tmp_path)
+
+
+from core.tools.base import BaseTool
+
+class PythonTool(BaseTool):
+    name = "python_script"
+    description = "Run Python code in a sandbox"
+    async def execute(self, step, context=None):
+        return await run_python_script(step.step_id, step.parameters, context)        
+from core.tools.base import BaseTool
+
+class PythonTool(BaseTool):
+    name = "python_script"
+    description = "Run Python code in a sandbox"
+    async def execute(self, step, context=None):
+        return await run_python_script(step.step_id, step.parameters, context)
