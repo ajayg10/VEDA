@@ -1,19 +1,8 @@
-import os
-import time
-import subprocess
-import tempfile
-import json
-from shared.models import StepResult, StepStatus
-
-SANDBOX_IMAGE   = "python:3.11-alpine"
-TIMEOUT_SECONDS = 30
-
 async def run_python_script(step_id: int, parameters: dict, context: dict | None = None) -> StepResult:
     code = parameters.get("code", "").strip()
     if not code:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error="No code provided")
 
-    # Inject step_outputs context
     context_injection = ""
     if context:
         context_injection = f"step_outputs = {json.dumps(context)}\n"
@@ -21,10 +10,6 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
     full_code = context_injection + code
 
     start = time.time()
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, dir="/tmp") as f:
-        f.write(full_code)
-        tmp_path = f.name
 
     try:
         docker_cmd = [
@@ -35,13 +20,14 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
             "--read-only",
             "--user", "65534",
             "--tmpfs", "/tmp:size=32m",
-            "-v", f"{tmp_path}:/tmp/script.py:ro",
+            "-i",
             SANDBOX_IMAGE,
-            "python", "/tmp/script.py"
+            "python", "-"
         ]
 
         result = subprocess.run(
             docker_cmd,
+            input=full_code,
             capture_output=True,
             text=True,
             timeout=TIMEOUT_SECONDS + 5,
@@ -77,21 +63,3 @@ async def run_python_script(step_id: int, parameters: dict, context: dict | None
         )
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
-    finally:
-        os.unlink(tmp_path)
-
-
-from core.tools.base import BaseTool
-
-class PythonTool(BaseTool):
-    name = "python_script"
-    description = "Run Python code in a sandbox"
-    async def execute(self, step, context=None):
-        return await run_python_script(step.step_id, step.parameters, context)        
-from core.tools.base import BaseTool
-
-class PythonTool(BaseTool):
-    name = "python_script"
-    description = "Run Python code in a sandbox"
-    async def execute(self, step, context=None):
-        return await run_python_script(step.step_id, step.parameters, context)
