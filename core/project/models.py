@@ -59,3 +59,10 @@ class ArchitectureSummary:
     entrypoints: list[Entrypoint]
     python_modules: int
     internal_dependencies: int
+
+
+@dataclass(frozen=True)
+class ContextFile:
+    path: str
+    score: int
+    reasons: tuple[str, ...]
