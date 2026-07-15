@@ -66,3 +66,11 @@ class ContextFile:
     path: str
     score: int
     reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class CodeSummary:
+    path: str
+    language: str
+    summary: str
+    symbols: tuple[str, ...]
