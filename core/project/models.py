@@ -25,3 +25,11 @@ class ProjectInfo:
     total_files: int = 0
 
     total_directories: int = 0
+
+
+@dataclass
+class FolderNode:
+    name: str
+    path: str
+    files: list[str] = field(default_factory=list)
+    children: list["FolderNode"] = field(default_factory=list)
