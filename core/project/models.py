@@ -39,3 +39,8 @@ class FolderNode:
 class Entrypoint:
     path: str
     kind: str
+
+
+@dataclass
+class DependencyGraph:
+    dependencies: dict[str, list[str]] = field(default_factory=dict)
