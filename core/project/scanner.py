@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from .models import ProjectInfo
-from .detectors import detect_framework, detect_language, detect_package_manager
+from .detectors import detect_docker, detect_framework, detect_language, detect_package_manager
 
 class ProjectScanner:
 
@@ -37,6 +37,7 @@ class ProjectScanner:
                 language = detect_language(path)
                 frameworks = detect_framework(path)
                 package_manager = detect_package_manager(path)
+                uses_docker = detect_docker(path)
 
                 for framework in frameworks:
                     if framework not in info.frameworks:
@@ -47,5 +48,8 @@ class ProjectScanner:
 
                 if package_manager and package_manager not in info.package_managers:
                     info.package_managers.append(package_manager)
+
+                if uses_docker:
+                    info.uses_docker = True
 
         return info

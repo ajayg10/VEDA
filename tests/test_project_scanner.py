@@ -6,6 +6,16 @@ from core.project.scanner import ProjectScanner
 
 
 class ProjectScannerTests(unittest.TestCase):
+    def test_detects_docker_configuration(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "services").mkdir()
+            (root / "services" / "Dockerfile").touch()
+
+            info = ProjectScanner().scan(str(root))
+
+        self.assertTrue(info.uses_docker)
+
     def test_detects_distinct_package_managers_from_lockfiles(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

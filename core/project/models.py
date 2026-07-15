@@ -12,6 +12,8 @@ class ProjectInfo:
 
     package_managers: list[str] = field(default_factory=list)
 
+    uses_docker: bool = False
+
     dependencies: list[str] = field(default_factory=list)
 
     entrypoints: list[str] = field(default_factory=list)

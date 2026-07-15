@@ -43,6 +43,14 @@ PACKAGE_MANAGER_FILES = {
     "composer.lock": "Composer",
 }
 
+DOCKER_FILES = {
+    "Dockerfile",
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "compose.yml",
+    "compose.yaml",
+}
+
 def detect_language(path: Path) -> str | None:
     return LANGUAGE_MAP.get(path.suffix.lower())
 
@@ -66,3 +74,8 @@ def detect_framework(path: Path) -> list[str]:
 def detect_package_manager(path: Path) -> str | None:
     """Return the package manager identified by a manifest or lockfile."""
     return PACKAGE_MANAGER_FILES.get(path.name)
+
+
+def detect_docker(path: Path) -> bool:
+    """Return whether a file is a conventional Docker configuration file."""
+    return path.name in DOCKER_FILES
