@@ -51,6 +51,14 @@ DOCKER_FILES = {
     "compose.yaml",
 }
 
+CI_FILES = {
+    ".gitlab-ci.yml": "GitLab CI",
+    "Jenkinsfile": "Jenkins",
+    "azure-pipelines.yml": "Azure Pipelines",
+    ".travis.yml": "Travis CI",
+    "bitbucket-pipelines.yml": "Bitbucket Pipelines",
+}
+
 def detect_language(path: Path) -> str | None:
     return LANGUAGE_MAP.get(path.suffix.lower())
 
@@ -79,3 +87,12 @@ def detect_package_manager(path: Path) -> str | None:
 def detect_docker(path: Path) -> bool:
     """Return whether a file is a conventional Docker configuration file."""
     return path.name in DOCKER_FILES
+
+
+def detect_ci_provider(path: Path) -> str | None:
+    """Return the CI provider identified by a conventional configuration path."""
+    if ".github" in path.parts and "workflows" in path.parts:
+        return "GitHub Actions"
+    if ".circleci" in path.parts and path.name == "config.yml":
+        return "CircleCI"
+    return CI_FILES.get(path.name)

@@ -16,6 +16,18 @@ class ProjectScannerTests(unittest.TestCase):
 
         self.assertTrue(info.uses_docker)
 
+    def test_detects_ci_providers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workflow_dir = root / ".github" / "workflows"
+            workflow_dir.mkdir(parents=True)
+            (workflow_dir / "test.yml").touch()
+            (root / ".gitlab-ci.yml").touch()
+
+            info = ProjectScanner().scan(str(root))
+
+        self.assertCountEqual(info.ci_providers, ["GitHub Actions", "GitLab CI"])
+
     def test_detects_distinct_package_managers_from_lockfiles(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -14,6 +14,8 @@ class ProjectInfo:
 
     uses_docker: bool = False
 
+    ci_providers: list[str] = field(default_factory=list)
+
     dependencies: list[str] = field(default_factory=list)
 
     entrypoints: list[str] = field(default_factory=list)
