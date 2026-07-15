@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: veda
+Version: 0.1.0
+Summary: Virtual Execution & Decision Architecture
+Requires-Python: >=3.11
+Requires-Dist: rich
+Requires-Dist: httpx
+Requires-Dist: fastapi
+Requires-Dist: python-dotenv

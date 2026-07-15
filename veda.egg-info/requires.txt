@@ -1,0 +1,4 @@
+rich
+httpx
+fastapi
+python-dotenv
