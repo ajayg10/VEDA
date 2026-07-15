@@ -33,3 +33,9 @@ class FolderNode:
     path: str
     files: list[str] = field(default_factory=list)
     children: list["FolderNode"] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class Entrypoint:
+    path: str
+    kind: str
