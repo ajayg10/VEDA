@@ -44,3 +44,18 @@ class Entrypoint:
 @dataclass
 class DependencyGraph:
     dependencies: dict[str, list[str]] = field(default_factory=dict)
+
+
+@dataclass
+class ArchitectureSummary:
+    root: str
+    languages: list[str]
+    frameworks: list[str]
+    package_managers: list[str]
+    uses_docker: bool
+    ci_providers: list[str]
+    has_tests: bool
+    top_level_directories: list[str]
+    entrypoints: list[Entrypoint]
+    python_modules: int
+    internal_dependencies: int
