@@ -44,6 +44,16 @@ class BrowserSessionTests(unittest.TestCase):
 
         self.assertEqual(value, "VEDA")
 
+    def test_fills_and_submits_a_login_form(self):
+        with tempfile.TemporaryDirectory() as directory:
+            page = Path(directory) / "login.html"
+            page.write_text("<title>Login</title><input id='user'><input id='pass'><button id='submit' onclick=\"document.title='Signed in'\">Sign in</button>", encoding="utf-8")
+            with BrowserSession() as browser:
+                browser.open(page.as_uri())
+                browser.login("#user", "#pass", "#submit", "ajay", "secret")
+                title = browser.page.title()
+        self.assertEqual(title, "Signed in")
+
 
 if __name__ == "__main__":
     unittest.main()

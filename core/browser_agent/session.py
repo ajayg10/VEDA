@@ -51,3 +51,8 @@ class BrowserSession:
         if self.page is None:
             raise RuntimeError("BrowserSession must be used as a context manager")
         self.page.locator(selector).fill(value)
+
+    def login(self, username_selector: str, password_selector: str, submit_selector: str, username: str, password: str) -> None:
+        self.type(username_selector, username)
+        self.type(password_selector, password)
+        self.click(submit_selector)
