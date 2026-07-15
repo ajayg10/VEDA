@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "veda"
+version = "0.1.0"
+description = "Virtual Execution & Decision Architecture"
+requires-python = ">=3.11"
+
+dependencies = [
+    "rich",
+    "httpx",
+    "fastapi",
+    "python-dotenv",
+]
+
+[project.scripts]
+veda = "cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "cli",
+    "core",
+    "core.project",
+    "shared",
+]
