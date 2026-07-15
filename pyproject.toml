@@ -22,6 +22,7 @@ veda = "cli.main:main"
 packages = [
     "cli",
     "core",
+    "core.code_agent",
     "core.project",
     "shared",
 ]
