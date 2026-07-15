@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from .models import ProjectInfo
+from .paths import iter_repository_paths
 from .detectors import (
     detect_ci_provider,
     detect_docker,
@@ -28,11 +29,7 @@ class ProjectScanner:
         root_path = Path(root)
         info = ProjectInfo(root=root)
 
-        for path in root_path.rglob("*"):
-
-            # Skip ignored directories
-            if any(part in self.IGNORE_DIRS for part in path.parts):
-                continue
+        for path in iter_repository_paths(root_path, self.IGNORE_DIRS):
 
             if path.is_dir():
                 info.total_directories += 1

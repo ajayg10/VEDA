@@ -2,6 +2,7 @@ import ast
 from pathlib import Path
 
 from .models import DependencyGraph
+from .paths import iter_repository_paths
 from .scanner import ProjectScanner
 
 
@@ -22,8 +23,8 @@ class DependencyGraphBuilder:
 
     def _module_paths(self, root: Path) -> dict[str, str]:
         modules: dict[str, str] = {}
-        for path in root.rglob("*.py"):
-            if any(part in ProjectScanner.IGNORE_DIRS for part in path.parts):
+        for path in iter_repository_paths(root, ProjectScanner.IGNORE_DIRS):
+            if path.suffix != ".py" or not path.is_file():
                 continue
             relative = path.relative_to(root)
             module = self._module_name(relative)

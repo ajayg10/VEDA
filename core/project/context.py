@@ -5,6 +5,7 @@ import re
 from .dependencies import DependencyGraphBuilder
 from .entrypoints import EntrypointFinder
 from .models import ContextFile
+from .paths import iter_repository_paths
 from .scanner import ProjectScanner
 
 
@@ -36,8 +37,8 @@ class ImportantFileSelector:
             raise ValueError(f"Repository root is not a directory: {root}")
 
         candidates: dict[str, tuple[int, set[str]]] = defaultdict(lambda: (0, set()))
-        for path in root_path.rglob("*"):
-            if any(part in ProjectScanner.IGNORE_DIRS for part in path.parts) or not path.is_file():
+        for path in iter_repository_paths(root_path, ProjectScanner.IGNORE_DIRS):
+            if not path.is_file():
                 continue
             relative_path = path.relative_to(root_path).as_posix()
             if path.name in ROOT_CONFIGURATION_FILES:
@@ -77,8 +78,8 @@ class RelevantFileSelector:
             raise ValueError(f"Repository root is not a directory: {root}")
 
         candidates: dict[str, tuple[int, set[str]]] = {}
-        for path in root_path.rglob("*"):
-            if any(part in ProjectScanner.IGNORE_DIRS for part in path.parts) or not path.is_file():
+        for path in iter_repository_paths(root_path, ProjectScanner.IGNORE_DIRS):
+            if not path.is_file():
                 continue
             relative_path = path.relative_to(root_path).as_posix()
             score, reasons = self._lexical_score(path, tokens)

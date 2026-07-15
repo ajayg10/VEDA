@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 from .models import Entrypoint
+from .paths import iter_repository_paths
 from .scanner import ProjectScanner
 
 
@@ -20,9 +21,7 @@ class EntrypointFinder:
             raise ValueError(f"Repository root is not a directory: {root}")
 
         entrypoints: set[Entrypoint] = set()
-        for path in root_path.rglob("*"):
-            if any(part in ProjectScanner.IGNORE_DIRS for part in path.parts):
-                continue
+        for path in iter_repository_paths(root_path, ProjectScanner.IGNORE_DIRS):
             if not path.is_file():
                 continue
 
