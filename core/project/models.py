@@ -74,3 +74,17 @@ class CodeSummary:
     language: str
     summary: str
     symbols: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ContextSnippet:
+    path: str
+    content: str
+    estimated_tokens: int
+
+
+@dataclass(frozen=True)
+class ContextBudget:
+    max_tokens: int
+    used_tokens: int
+    snippets: tuple[ContextSnippet, ...]
