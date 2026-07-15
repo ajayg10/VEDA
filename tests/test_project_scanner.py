@@ -28,6 +28,17 @@ class ProjectScannerTests(unittest.TestCase):
 
         self.assertCountEqual(info.ci_providers, ["GitHub Actions", "GitLab CI"])
 
+    def test_detects_conventional_test_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "src").mkdir()
+            (root / "src" / "app.py").touch()
+            (root / "src" / "app.spec.ts").touch()
+
+            info = ProjectScanner().scan(str(root))
+
+        self.assertTrue(info.has_tests)
+
     def test_detects_distinct_package_managers_from_lockfiles(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

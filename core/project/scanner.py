@@ -7,6 +7,7 @@ from .detectors import (
     detect_framework,
     detect_language,
     detect_package_manager,
+    detect_test_file,
 )
 
 class ProjectScanner:
@@ -45,6 +46,7 @@ class ProjectScanner:
                 package_manager = detect_package_manager(path)
                 uses_docker = detect_docker(path)
                 ci_provider = detect_ci_provider(path)
+                has_tests = detect_test_file(path)
 
                 for framework in frameworks:
                     if framework not in info.frameworks:
@@ -61,5 +63,8 @@ class ProjectScanner:
 
                 if ci_provider and ci_provider not in info.ci_providers:
                     info.ci_providers.append(ci_provider)
+
+                if has_tests:
+                    info.has_tests = True
 
         return info

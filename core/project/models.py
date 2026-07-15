@@ -16,6 +16,8 @@ class ProjectInfo:
 
     ci_providers: list[str] = field(default_factory=list)
 
+    has_tests: bool = False
+
     dependencies: list[str] = field(default_factory=list)
 
     entrypoints: list[str] = field(default_factory=list)

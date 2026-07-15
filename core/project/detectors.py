@@ -96,3 +96,18 @@ def detect_ci_provider(path: Path) -> str | None:
     if ".circleci" in path.parts and path.name == "config.yml":
         return "CircleCI"
     return CI_FILES.get(path.name)
+
+
+def detect_test_file(path: Path) -> bool:
+    """Return whether a path follows a common test file or directory convention."""
+    name = path.name.lower()
+    if any(part.lower() in {"test", "tests", "__tests__"} for part in path.parts):
+        return True
+    return (
+        name.startswith("test_")
+        or name.endswith("_test.py")
+        or name.endswith(".test.js")
+        or name.endswith(".test.ts")
+        or name.endswith(".spec.js")
+        or name.endswith(".spec.ts")
+    )
