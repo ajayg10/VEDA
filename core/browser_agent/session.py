@@ -40,3 +40,9 @@ class BrowserSession:
             raise RuntimeError("BrowserSession must be used as a context manager")
         response = self.page.goto(url, wait_until="domcontentloaded")
         return PageSnapshot(self.page.url, self.page.title(), response.status if response else None)
+
+    def click(self, selector: str) -> PageSnapshot:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page.click(selector)
+        return PageSnapshot(self.page.url, self.page.title(), None)

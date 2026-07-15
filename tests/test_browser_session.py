@@ -18,6 +18,20 @@ class BrowserSessionTests(unittest.TestCase):
         self.assertTrue(snapshot.url.endswith("page.html"))
         self.assertEqual(snapshot.status_code, 200)
 
+    def test_clicks_a_page_element_in_the_active_session(self):
+        with tempfile.TemporaryDirectory() as directory:
+            page = Path(directory) / "page.html"
+            page.write_text(
+                "<title>Before</title><button id='go' onclick=\"document.title='After'\">Go</button>",
+                encoding="utf-8",
+            )
+
+            with BrowserSession() as browser:
+                browser.open(page.as_uri())
+                snapshot = browser.click("#go")
+
+        self.assertEqual(snapshot.title, "After")
+
 
 if __name__ == "__main__":
     unittest.main()
