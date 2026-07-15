@@ -32,6 +32,18 @@ class BrowserSessionTests(unittest.TestCase):
 
         self.assertEqual(snapshot.title, "After")
 
+    def test_types_into_a_page_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            page = Path(directory) / "page.html"
+            page.write_text("<input id='name'>", encoding="utf-8")
+
+            with BrowserSession() as browser:
+                browser.open(page.as_uri())
+                browser.type("#name", "VEDA")
+                value = browser.page.input_value("#name")
+
+        self.assertEqual(value, "VEDA")
+
 
 if __name__ == "__main__":
     unittest.main()

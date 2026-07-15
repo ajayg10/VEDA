@@ -46,3 +46,8 @@ class BrowserSession:
             raise RuntimeError("BrowserSession must be used as a context manager")
         self.page.click(selector)
         return PageSnapshot(self.page.url, self.page.title(), None)
+
+    def type(self, selector: str, value: str) -> None:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page.locator(selector).fill(value)
