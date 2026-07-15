@@ -54,6 +54,27 @@ class BrowserSessionTests(unittest.TestCase):
                 title = browser.page.title()
         self.assertEqual(title, "Signed in")
 
+    def test_supports_remaining_browser_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            upload = root / "upload.txt"; upload.write_text("file")
+            page = root / "page.html"
+            page.write_text("<form><input id='a'><input id='file' type='file'></form><main>VEDA content</main><div class='captcha-box'></div>", encoding="utf-8")
+            with BrowserSession() as browser:
+                browser.open(page.as_uri())
+                browser.fill_form({"#a": "value"})
+                browser.upload("#file", str(upload))
+                browser.screenshot(str(root / "page.png"))
+                browser.pdf(str(root / "page.pdf"))
+                text = browser.scrape_text("main")
+                tab = browser.new_tab()
+                tab.goto(page.as_uri())
+                captcha = browser.requires_captcha_assistance()
+            self.assertTrue((root / "page.png").is_file())
+            self.assertTrue((root / "page.pdf").is_file())
+        self.assertEqual(text, "VEDA content")
+        self.assertTrue(captcha)
+
 
 if __name__ == "__main__":
     unittest.main()

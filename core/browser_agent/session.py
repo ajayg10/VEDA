@@ -56,3 +56,38 @@ class BrowserSession:
         self.type(username_selector, username)
         self.type(password_selector, password)
         self.click(submit_selector)
+
+    def fill_form(self, values: dict[str, str]) -> None:
+        for selector, value in values.items():
+            self.type(selector, value)
+
+    def upload(self, selector: str, file_path: str) -> None:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page.locator(selector).set_input_files(file_path)
+
+    def screenshot(self, path: str) -> None:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page.screenshot(path=path, full_page=True)
+
+    def pdf(self, path: str) -> None:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page.pdf(path=path)
+
+    def scrape_text(self, selector: str = "body") -> str:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        return self.page.locator(selector).inner_text()
+
+    def new_tab(self) -> Page:
+        if self._context is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        self.page = self._context.new_page()
+        return self.page
+
+    def requires_captcha_assistance(self) -> bool:
+        if self.page is None:
+            raise RuntimeError("BrowserSession must be used as a context manager")
+        return self.page.locator("iframe[src*='recaptcha'], iframe[src*='hcaptcha'], [class*='captcha' i]").count() > 0
