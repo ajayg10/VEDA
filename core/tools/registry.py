@@ -6,6 +6,7 @@ from .shell import ShellTool
 from .http import HttpTool
 from .file_ops import FileCreateTool, FileReadTool
 from .python_runner import PythonTool
+from .browser import BrowserTool
 
 
 class ToolRegistry:
@@ -28,3 +29,4 @@ class ToolRegistry:
         self.register(FileCreateTool())
         self.register(FileReadTool())
         self.register(PythonTool())
+        self.register(BrowserTool())

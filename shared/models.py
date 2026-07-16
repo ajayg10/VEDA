@@ -9,6 +9,7 @@ class ToolType(str, Enum):
     FILE_READ     = "file_read"
     HTTP_REQUEST  = "http_request"
     PYTHON_SCRIPT = "python_script"
+    BROWSER_ACTION = "browser_action"
     NO_OP         = "no_op"
 
 

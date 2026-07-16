@@ -39,7 +39,7 @@ Required JSON structure:
     {
       "step_id": 1,
       "description": "string",
-      "tool": "shell_command | file_create | file_read | http_request | python_script | no_op",
+      "tool": "shell_command | file_create | file_read | http_request | python_script | browser_action | no_op",
       "parameters": {},
       "depends_on": [],
       "rationale": "string"
