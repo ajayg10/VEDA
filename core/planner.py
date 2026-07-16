@@ -2,7 +2,7 @@ import os
 import json
 from openai import AsyncOpenAI
 from pydantic import ValidationError
-from shared.models import ExecutionPlan
+from shared.models import ExecutionPlan, ToolType
 
 PROVIDER_CONFIG = {
     "groq":   {"base_url": "https://api.groq.com/openai/v1", "api_key_env": "LLM_API_KEY"},
@@ -32,6 +32,7 @@ Available tools and their parameter schemas:
 - no_op          → {"note": "string"}
 
 For browser_action, use {"url": "https://...", "actions": [{"action": "scrape_text", "selector": "body"}]}. Supported actions are click, type, fill_form, scrape_text, and captcha_check. Browser actions send requests externally and require confirmation.
+TOOL SELECTION: For goals that say open, visit, browse, or interact with a website, use browser_action. Use http_request only when the user explicitly requests an HTTP/API request or raw response body.
 
 Required JSON structure:
 {
@@ -107,7 +108,7 @@ class Planner:
                 )
                 raw: str = response.choices[0].message.content
                 plan = ExecutionPlan.model_validate_json(raw)
-                return plan
+                return self._prefer_browser_actions(user_goal, plan)
 
             except (ValidationError, json.JSONDecodeError) as e:
                 last_error = e
@@ -119,3 +120,20 @@ class Planner:
                     })
 
         raise ValueError(f"Planner failed after {max_retries + 1} attempts. Last error: {last_error}")
+
+    @staticmethod
+    def _prefer_browser_actions(user_goal: str, plan: ExecutionPlan) -> ExecutionPlan:
+        goal = user_goal.lower()
+        browser_intent = any(word in goal for word in ("open ", "visit ", "browse ", "website"))
+        explicit_http = "http" in goal or "api" in goal
+        if not browser_intent or explicit_http:
+            return plan
+
+        for step in plan.steps:
+            if step.tool == ToolType.HTTP_REQUEST and step.parameters.get("method", "GET").upper() == "GET":
+                url = step.parameters.get("url")
+                if isinstance(url, str) and url:
+                    step.tool = ToolType.BROWSER_ACTION
+                    step.parameters = {"url": url, "actions": [{"action": "scrape_text", "selector": "body"}]}
+                    plan.requires_confirmation = True
+        return plan
