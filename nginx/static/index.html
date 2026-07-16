@@ -679,7 +679,19 @@ async function send() {
       return;
     }
 
-    const data = await r.json();
+    const responseText = await r.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      addMessage('assistant', `Service error (${r.status}): ${responseText.slice(0, 300)}`);
+      return;
+    }
+
+    if (!r.ok) {
+      addMessage('assistant', `Service error (${r.status}): ${data.detail || data.error || 'Request failed.'}`);
+      return;
+    }
 
     if (data.error) {
       addMessage('assistant', `Error: ${data.error}`);
