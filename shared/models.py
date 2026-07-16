@@ -4,31 +4,43 @@ from enum import Enum
 
 
 class ToolType(str, Enum):
-    SHELL_COMMAND = "shell_command"
-    FILE_CREATE   = "file_create"
-    FILE_READ     = "file_read"
-    HTTP_REQUEST  = "http_request"
-    PYTHON_SCRIPT = "python_script"
-    BROWSER_ACTION = "browser_action"
-    NO_OP         = "no_op"
+    SHELL_COMMAND    = "shell_command"
+    FILE_CREATE      = "file_create"
+    FILE_READ        = "file_read"
+    HTTP_REQUEST     = "http_request"
+    PYTHON_SCRIPT    = "python_script"
+    BROWSER_ACTION   = "browser_action"
+    NO_OP            = "no_op"
+    # Module 8 — Repository Intelligence
+    PROJECT_SCAN     = "project_scan"
+    PROJECT_CONTEXT  = "project_context"
+    # Module 9 — Code Agent
+    CODE_READ        = "code_read"
+    CODE_EDIT        = "code_edit"
+    CODE_PATCH       = "code_patch"
+    CODE_REVIEW      = "code_review"
+    CODE_RENAME      = "code_rename"
+    CODE_DOCS        = "code_docs"
+    CODE_DIFF        = "code_diff"
+    CODE_GEN_TESTS   = "code_gen_tests"
 
 
 class TaskStep(BaseModel):
-    step_id: int = Field(..., description="Sequential step number starting from 1")
-    description: str = Field(..., description="Human-readable description of what this step does")
-    tool: ToolType = Field(..., description="The tool/executor to use for this step")
-    parameters: Dict[str, Any] = Field(..., description="Tool-specific input parameters")
-    depends_on: List[int] = Field(default_factory=list, description="step_ids that must complete before this step runs")
-    rationale: str = Field(..., description="Why this specific step is necessary for the goal")
+    step_id:     int             = Field(..., description="Sequential step number starting from 1")
+    description: str             = Field(..., description="Human-readable description of what this step does")
+    tool:        ToolType        = Field(..., description="The tool/executor to use for this step")
+    parameters:  Dict[str, Any]  = Field(..., description="Tool-specific input parameters")
+    depends_on:  List[int]       = Field(default_factory=list, description="step_ids that must complete before this step runs")
+    rationale:   str             = Field(..., description="Why this specific step is necessary for the goal")
 
 
 class ExecutionPlan(BaseModel):
-    goal: str = Field(..., description="The original user goal, rephrased for clarity")
-    reasoning: str = Field(..., description="High-level approach and reasoning before listing steps")
-    steps: List[TaskStep] = Field(..., description="Ordered list of atomic execution steps")
-    estimated_complexity: str = Field(..., description="Must be exactly one of: low | medium | high")
-    requires_confirmation: bool = Field(..., description="True if any step is potentially destructive")
-    
+    goal:                   str        = Field(..., description="The original user goal, rephrased for clarity")
+    reasoning:              str        = Field(..., description="High-level approach and reasoning before listing steps")
+    steps:                  List[TaskStep] = Field(..., description="Ordered list of atomic execution steps")
+    estimated_complexity:   str        = Field(..., description="Must be exactly one of: low | medium | high")
+    requires_confirmation:  bool       = Field(..., description="True if any step is potentially destructive")
+
 
 class StepStatus(str, Enum):
     SUCCESS = "success"
@@ -43,21 +55,26 @@ class StepResult(BaseModel):
     output:      str   = ""
     error:       str   = ""
     duration_ms: float = 0.0
-    raw_body:    str   = "" 
+    raw_body:    str   = ""
+
 
 class ExecutionResult(BaseModel):
-    goal:             str
-    status:           StepStatus
-    step_results:     List[StepResult]
-    total_duration_ms: float    
-    
+    goal:              str
+    status:            StepStatus
+    step_results:      List[StepResult]
+    total_duration_ms: float
+
+
 class PlanRequest(BaseModel):
     goal:           str
     memory_context: str = ""
 
+
 class RetrieveRequest(BaseModel):
-    goal: str
-    k:    int = 3
+    goal:    str
+    k:       int = 3
+    user_id: str = "default"
+
 
 class MemoryEntry(BaseModel):
     goal:       str
@@ -66,30 +83,37 @@ class MemoryEntry(BaseModel):
     created_at: str
     score:      float
 
+
 class StoreRequest(BaseModel):
-    goal:   str
-    plan:   ExecutionPlan
-    result: ExecutionResult | None = None
+    goal:    str
+    plan:    ExecutionPlan
+    result:  ExecutionResult | None = None
+    user_id: str = "default"
+
 
 class HealthResponse(BaseModel):
     service: str
     status:  str = "ok"
+
 
 class RunRequest(BaseModel):
     goal:         str
     plan:         ExecutionPlan | None = None
     auto_execute: bool = False
 
+
 class OrchestrationResult(BaseModel):
     goal:      str
-    memories:  List[MemoryEntry]     = []
-    plan:      ExecutionPlan  | None = None
+    memories:  List[MemoryEntry]      = []
+    plan:      ExecutionPlan  | None  = None
     result:    ExecutionResult | None = None
-    executed:  bool = False    
-    
+    executed:  bool = False
+
+
 class CreateUserRequest(BaseModel):
     name:  str
     email: str
+
 
 class UserResponse(BaseModel):
     id:         str
@@ -98,10 +122,12 @@ class UserResponse(BaseModel):
     api_key:    str
     created_at: str
 
+
 class ValidateKeyRequest(BaseModel):
     api_key: str
+
 
 class ValidateKeyResponse(BaseModel):
     valid:   bool
     user_id: str = ""
-    name:    str = ""    
+    name:    str = ""

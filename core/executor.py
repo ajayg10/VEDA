@@ -1,7 +1,6 @@
 import time
 from typing import List, Set
 
-
 from shared.models import (
     ExecutionPlan, TaskStep,
     StepResult, StepStatus, ExecutionResult,
@@ -10,15 +9,16 @@ from shared.models import (
 from core.tools.registry import ToolRegistry
 from core.workspace import WorkspaceManager
 
+
 class Executor:
-# Mapping of ToolType to their async handler functions
+    """DAG-based plan executor. Dispatches each step to the registered tool."""
 
     def __init__(self):
         self.registry = ToolRegistry()
         self.registry.load_builtin_tools()
 
     def _topological_sort(self, steps: List[TaskStep]) -> List[TaskStep]:
-        step_map   = {s.step_id: s for s in steps} 
+        step_map   = {s.step_id: s for s in steps}
         in_degree  = {s.step_id: len(s.depends_on) for s in steps}
         queue      = [s for s in steps if len(s.depends_on) == 0]
         sorted_out: List[TaskStep] = []
@@ -80,12 +80,12 @@ class Executor:
             step_results=results,
             total_duration_ms=total_duration,
         )
-        
+
     async def _dispatch(self, step: TaskStep, context: dict) -> StepResult:
-        
         tool = self.registry.get(step.tool.value)
 
         if tool is None:
+            # no_op or unknown tool — treat as successful no-operation
             return StepResult(
                 step_id=step.step_id,
                 status=StepStatus.SUCCESS,

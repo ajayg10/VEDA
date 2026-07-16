@@ -89,7 +89,8 @@ class UnifiedPatchApplier:
         cursor = 0
         for hunk in hunks:
             match = HUNK_HEADER.match(hunk[0])
-            assert match is not None
+            if match is None:
+                raise ValueError(f"Malformed hunk header in patch: {hunk[0].strip()}")
             start = max(int(match.group("old_start")) - 1, 0)
             if start < cursor or start > len(before):
                 raise ValueError("Patch hunks overlap or target an invalid line")

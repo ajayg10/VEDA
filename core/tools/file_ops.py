@@ -1,15 +1,11 @@
 import os
 import time
-import subprocess
-import tempfile
 from shared.models import StepResult, StepStatus
 from core.tools.base import BaseTool
 
-SANDBOX_IMAGE   = "python:3.11-alpine"
-TIMEOUT_SECONDS = 30
-
 # Safe base directory — all file operations confined here
 FILES_BASE = "/tmp/veda_files"
+
 
 def _safe_path(filename: str) -> str:
     """Resolve path and ensure it stays within FILES_BASE."""
@@ -17,6 +13,7 @@ def _safe_path(filename: str) -> str:
     if not safe.startswith(FILES_BASE):
         raise ValueError(f"Path traversal blocked: {filename}")
     return safe
+
 
 async def run_file_create(step_id: int, parameters: dict) -> StepResult:
     filename = parameters.get("filename", "").strip()
@@ -40,6 +37,7 @@ async def run_file_create(step_id: int, parameters: dict) -> StepResult:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
     except Exception as e:
         return StepResult(step_id=step_id, status=StepStatus.FAILED, error=str(e))
+
 
 async def run_file_read(step_id: int, parameters: dict) -> StepResult:
     filename = parameters.get("filename", "").strip()
@@ -66,13 +64,16 @@ async def run_file_read(step_id: int, parameters: dict) -> StepResult:
 
 
 class FileCreateTool(BaseTool):
-    name = "file_create"
-    description = "Create a file with content"
+    name        = "file_create"
+    description = "Create a file with content inside the VEDA sandbox."
+
     async def execute(self, step, context=None):
         return await run_file_create(step.step_id, step.parameters)
 
+
 class FileReadTool(BaseTool):
-    name = "file_read"
-    description = "Read a file"
+    name        = "file_read"
+    description = "Read a file from the VEDA sandbox."
+
     async def execute(self, step, context=None):
-        return await run_file_read(step.step_id, step.parameters)    
+        return await run_file_read(step.step_id, step.parameters)

@@ -8,6 +8,7 @@ import httpx
 from rich.console import Console
 from rich.panel   import Panel
 from rich.table   import Table
+from rich.text    import Text
 from rich         import box
 
 from shared.models import (
@@ -17,13 +18,13 @@ from shared.models import (
 
 ORCHESTRATOR_URL = os.getenv("ORCHESTRATOR_URL", "http://localhost:8000")
 console = Console()
-
 api_key = os.getenv("VEDA_API_KEY", "")
-headers = {"X-API-Key": api_key} if api_key else {}
-client = httpx.AsyncClient(
-        base_url="http://localhost", 
-        headers=headers, 
-        timeout=120)
+
+
+def _auth_headers() -> dict:
+    """Return API key headers if configured."""
+    return {"X-API-Key": api_key} if api_key else {}
+
 
 def render_plan(plan: ExecutionPlan) -> None:
     complexity_color = {"low": "green", "medium": "yellow", "high": "red"}.get(
@@ -45,7 +46,7 @@ def render_plan(plan: ExecutionPlan) -> None:
 
     tbl = Table(box=box.ROUNDED, header_style="bold magenta", show_lines=True)
     tbl.add_column("#",           style="dim",      width=3)
-    tbl.add_column("Tool",        style="cyan",      width=16)
+    tbl.add_column("Tool",        style="cyan",      width=18)
     tbl.add_column("Description", style="white",     min_width=28)
     tbl.add_column("Depends on",  style="yellow",    width=12)
     tbl.add_column("Rationale",   style="dim white", min_width=20)
@@ -95,6 +96,56 @@ def render_results(result) -> None:
     ))
 
 
+def render_project_info(root: str) -> None:
+    """Run a full architecture scan and display it with rich formatting."""
+    from core.project.summary import ArchitectureSummarizer
+    from core.project.formatter import ArchitectureSummaryFormatter, FolderTreeFormatter
+    from core.project.graph import FolderTreeBuilder
+
+    with console.status("[bold green]Scanning repository…[/bold green]", spinner="dots"):
+        summary = ArchitectureSummarizer().summarize(root)
+        tree    = FolderTreeBuilder().build(root)
+
+    # Header panel
+    langs    = ", ".join(summary.languages)     or "—"
+    fw       = ", ".join(summary.frameworks)    or "—"
+    pm       = ", ".join(summary.package_managers) or "—"
+    ci       = ", ".join(summary.ci_providers)  or "—"
+    docker   = "[green]yes[/green]" if summary.uses_docker else "[dim]no[/dim]"
+    tests    = "[green]yes[/green]" if summary.has_tests   else "[dim]no[/dim]"
+
+    console.print(Panel(
+        f"[bold cyan]Root:[/bold cyan]            {summary.root}\n"
+        f"[bold]Languages:[/bold]        {langs}\n"
+        f"[bold]Frameworks:[/bold]       {fw}\n"
+        f"[bold]Package Manager:[/bold]  {pm}\n"
+        f"[bold]CI:[/bold]               {ci}\n"
+        f"[bold]Docker:[/bold]           {docker}\n"
+        f"[bold]Tests:[/bold]            {tests}\n"
+        f"[bold]Python modules:[/bold]   {summary.python_modules}\n"
+        f"[bold]Internal deps:[/bold]    {summary.internal_dependencies}",
+        title="[bold green]✦ Repository Intelligence[/bold green]",
+        border_style="green",
+    ))
+
+    # Entrypoints table
+    if summary.entrypoints:
+        tbl = Table(box=box.SIMPLE, header_style="bold dim")
+        tbl.add_column("Kind",  style="cyan",  width=12)
+        tbl.add_column("Path",  style="white")
+        for ep in summary.entrypoints:
+            tbl.add_row(ep.kind, ep.path)
+        console.print(Panel(tbl, title="[dim]Entrypoints[/dim]", border_style="dim"))
+
+    # Folder tree
+    tree_text = FolderTreeFormatter().format(tree, max_depth=3)
+    console.print(Panel(
+        tree_text,
+        title="[dim]Folder Tree[/dim]",
+        border_style="dim",
+    ))
+
+
 async def check_services(client: httpx.AsyncClient) -> bool:
     """Ping all four services before starting the REPL."""
     services = {
@@ -118,11 +169,13 @@ async def check_services(client: httpx.AsyncClient) -> bool:
 async def repl() -> None:
     console.print(Panel(
         "[bold green]VEDA[/bold green] — Virtual Execution & Decision Architecture\n"
-        "[dim]Phase 4 · Distributed Microservices · type 'exit' to quit[/dim]",
+        "[dim]The Agent Operating System · type 'exit' to quit · 'help' for commands[/dim]",
         border_style="green",
     ))
 
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    headers = _auth_headers()
+
+    async with httpx.AsyncClient(timeout=60.0, headers=headers) as client:
         console.print("\n[dim]Checking services…[/dim]")
         all_up = await check_services(client)
         if not all_up:
@@ -138,22 +191,34 @@ async def repl() -> None:
             try:
                 console.print("\n[bold green]veda >[/bold green] ", end="")
                 user_input = input().strip()
-                
-                if user_input.startswith("analyze "):
-
-                    path = user_input.split(" ", 1)[1]
-                    from core.project.scanner import ProjectScanner
-                    scanner = ProjectScanner()
-                    info = scanner.scan(path)
-                    console.print(info)
-
-                    continue
 
                 if not user_input:
                     continue
+
                 if user_input.lower() in ("exit", "quit", "q"):
                     console.print("[dim]Shutting down.[/dim]")
                     break
+
+                if user_input.lower() == "help":
+                    console.print(Panel(
+                        "[bold]Built-in commands:[/bold]\n"
+                        "  [cyan]analyze <path>[/cyan]  — Scan a repository and display architecture summary\n"
+                        "  [cyan]help[/cyan]             — Show this help\n"
+                        "  [cyan]exit[/cyan]             — Quit VEDA\n\n"
+                        "[bold]Otherwise:[/bold] Type any goal in natural language and VEDA will plan and execute it.",
+                        title="[dim]VEDA Help[/dim]",
+                        border_style="dim",
+                    ))
+                    continue
+
+                # ── Built-in: analyze <path> ──────────────────────────────
+                if user_input.lower().startswith("analyze "):
+                    path = user_input.split(" ", 1)[1].strip()
+                    if not os.path.isdir(path):
+                        console.print(f"[red]Not a directory:[/red] {path}")
+                        continue
+                    render_project_info(path)
+                    continue
 
                 # ── Mode A: get plan from orchestrator ─────────────────────
                 with console.status("[bold green]Planning…[/bold green]", spinner="dots"):
@@ -163,7 +228,7 @@ async def repl() -> None:
                     )
 
                 if resp.status_code != 200:
-                    console.print(f"[red]Orchestrator error:[/red] {resp.text}")
+                    console.print(f"[red]Orchestrator error {resp.status_code}:[/red] {resp.text}")
                     continue
 
                 orch = OrchestrationResult(**resp.json())
@@ -172,7 +237,7 @@ async def repl() -> None:
 
                 # ── Confirmation ───────────────────────────────────────────
                 if orch.plan.requires_confirmation:
-                    console.print("\n[bold red]⚠  WARNING:[/bold red] Destructive operations detected.\n")
+                    console.print("\n[bold red]⚠  WARNING:[/bold red] Destructive or external operations detected.\n")
                 console.print("[bold]Execute this plan?[/bold] [dim](yes / no)[/dim] ", end="")
                 if input().strip().lower() not in ("yes", "y"):
                     console.print("[dim]Execution skipped.[/dim]")
@@ -190,7 +255,7 @@ async def repl() -> None:
                     )
 
                 if resp.status_code != 200:
-                    console.print(f"[red]Execution error:[/red] {resp.text}")
+                    console.print(f"[red]Execution error {resp.status_code}:[/red] {resp.text}")
                     continue
 
                 orch2 = OrchestrationResult(**resp.json())

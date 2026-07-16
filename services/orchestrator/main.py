@@ -16,8 +16,8 @@ from shared.models import (
     PlanRequest, RetrieveRequest, StoreRequest,
     MemoryEntry, ExecutionPlan, ExecutionResult,
     HealthResponse, CreateUserRequest, UserResponse,
+    StepStatus,
 )
-
 
 
 # Service URLs — override via .env for Docker/cloud deployments
@@ -25,7 +25,7 @@ PLANNER_URL  = os.getenv("PLANNER_URL",  "http://localhost:8001")
 MEMORY_URL   = os.getenv("MEMORY_URL",   "http://localhost:8002")
 EXECUTOR_URL = os.getenv("EXECUTOR_URL", "http://localhost:8003")
 
-app = FastAPI(title="VEDA — Orchestrator", version="0.4.0")
+app = FastAPI(title="VEDA — Orchestrator", version="0.5.0")
 
 from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app)
@@ -33,8 +33,8 @@ Instrumentator().instrument(app).expose(app)
 from prometheus_client import Counter, Histogram
 
 GOALS_TOTAL    = Counter("veda_goals_total", "Total goals received")
-GOALS_EXECUTED = Counter("veda_goals_executed_total", "Goals executed")
-GOALS_FAILED   = Counter("veda_goals_failed_total", "Goals that failed")
+GOALS_EXECUTED = Counter("veda_goals_executed_total", "Goals executed successfully")
+GOALS_FAILED   = Counter("veda_goals_failed_total", "Goals that failed during execution")
 PLAN_LATENCY   = Histogram("veda_plan_duration_seconds", "Plan generation time")
 EXEC_LATENCY   = Histogram("veda_exec_duration_seconds", "Execution time")
 
@@ -44,11 +44,11 @@ API_KEY = os.getenv("VEDA_API_KEY", "")
 async def auth_middleware(request: Request, call_next):
     if request.url.path in ("/health", "/register"):
         return await call_next(request)
-    
+
     key = request.headers.get("X-API-Key", "")
     if not key:
         return JSONResponse(status_code=401, content={"error": "Missing API key"})
-    
+
     # Validate against Memory service's user table
     try:
         async with httpx.AsyncClient() as client:
@@ -60,14 +60,15 @@ async def auth_middleware(request: Request, call_next):
             data = resp.json()
             if not data.get("valid"):
                 return JSONResponse(status_code=401, content={"error": "Invalid API key"})
-            
+
             # Attach user info to request state for use in handlers
-            request.state.user_id = data["user_id"]
+            request.state.user_id   = data["user_id"]
             request.state.user_name = data["name"]
     except Exception:
         return JSONResponse(status_code=503, content={"error": "Auth service unavailable"})
-    
+
     return await call_next(request)
+
 
 def _format_context(memories: List[MemoryEntry]) -> str:
     """Convert MemoryEntry list into a prompt-ready string for the Planner."""
@@ -75,8 +76,8 @@ def _format_context(memories: List[MemoryEntry]) -> str:
         return ""
     lines = ["RELEVANT PAST EXECUTIONS:\n"]
     for i, m in enumerate(memories, 1):
-        plan  = json.loads(m.plan_json)
-        steps = plan.get("steps", [])
+        plan   = json.loads(m.plan_json)
+        steps  = plan.get("steps", [])
         status = "✓ succeeded" if m.succeeded else "✗ failed"
         lines.append(f"{i}. [{status}] Goal: {m.goal}")
         lines.append(f"   Tools used: {', '.join(s['tool'] for s in steps)}")
@@ -99,7 +100,7 @@ async def register(req: CreateUserRequest):
                 f"{MEMORY_URL}/users",
                 json=req.model_dump(),
             )
-            if resp.status_code == 400:
+            if resp.status_code == 409:
                 raise HTTPException(status_code=400, detail="Email already registered.")
             if resp.status_code != 200:
                 raise HTTPException(status_code=502, detail="Registration failed.")
@@ -107,21 +108,22 @@ async def register(req: CreateUserRequest):
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Memory service unreachable.")
 
+
 @app.post("/run", response_model=OrchestrationResult)
 async def run(req: RunRequest, request: Request):
     user_id = request.state.user_id
     GOALS_TOTAL.inc()
-   
+
     """
     Central workflow endpoint. Two modes:
     Mode A — plan only (request.plan is None, auto_execute=False):
-      1. Retrieve similar memories from Memory service
+      1. Retrieve similar memories from Memory service (scoped to user)
       2. Format memory context
       3. Call Planner → get ExecutionPlan
       4. Return plan + memories (not executed)
     Mode B — execute (request.plan is provided, auto_execute=True):
       1. Call Executor with the provided plan
-      2. Store result in Memory service
+      2. Store result in Memory service (scoped to user)
       3. Return plan + result
     The CLI calls Mode A first (show plan → user confirms), then Mode B.
     This separation means the plan is never regenerated during execution —
@@ -131,14 +133,17 @@ async def run(req: RunRequest, request: Request):
 
         # ── Mode A: Plan ──────────────────────────────────────────────────
         if req.plan is None:
-            # Step 1: retrieve memories
+            # Step 1: retrieve memories scoped to this user
             memories: List[MemoryEntry] = []
             try:
                 resp = await client.post(
                     f"{MEMORY_URL}/retrieve",
                     json=RetrieveRequest(goal=req.goal, user_id=user_id).model_dump(),
                 )
-                memories = [MemoryEntry(**m) for m in resp.json().get("memories", [])]
+                # /retrieve returns a JSON array, not a dict
+                raw_memories = resp.json()
+                if isinstance(raw_memories, list):
+                    memories = [MemoryEntry(**m) for m in raw_memories]
 
             except Exception:
                 pass   # memory failure is non-fatal — planning continues
@@ -179,6 +184,12 @@ async def run(req: RunRequest, request: Request):
 
                 result = ExecutionResult(**exec_resp.json())
 
+                # Track metrics
+                if result.status == StepStatus.SUCCESS:
+                    GOALS_EXECUTED.inc()
+                else:
+                    GOALS_FAILED.inc()
+
                 try:
                     await client.post(
                         f"{MEMORY_URL}/store",
@@ -192,7 +203,6 @@ async def run(req: RunRequest, request: Request):
                 except Exception:
                     pass
 
-                GOALS_EXECUTED.inc()
                 return OrchestrationResult(
                     goal=req.goal,
                     memories=memories,
@@ -227,9 +237,15 @@ async def run(req: RunRequest, request: Request):
 
             result = ExecutionResult(**resp.json())
 
-            # Step 4: persist to memory (non-fatal if it fails)
+            # Track metrics
+            if result.status == StepStatus.SUCCESS:
+                GOALS_EXECUTED.inc()
+            else:
+                GOALS_FAILED.inc()
+
+            # Step 4: persist to memory scoped to user (non-fatal if it fails)
             try:
-                 await client.post(
+                await client.post(
                     f"{MEMORY_URL}/store",
                     json=StoreRequest(
                         goal=req.goal,

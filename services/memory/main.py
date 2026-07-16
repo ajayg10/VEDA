@@ -6,7 +6,7 @@ load_dotenv()
 
 from contextlib import asynccontextmanager
 from typing import List
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 
 from shared.models import (
     RetrieveRequest, StoreRequest,
@@ -27,10 +27,11 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="VEDA — Memory Service", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="VEDA — Memory Service", version="0.5.0", lifespan=lifespan)
 
 from prometheus_fastapi_instrumentator import Instrumentator
 Instrumentator().instrument(app).expose(app)
+
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
@@ -41,22 +42,24 @@ async def health():
 async def retrieve(request: RetrieveRequest):
     """
     Embed the goal, search FAISS for the k most similar past goals,
-    and return their metadata from SQLite.
+    and return their metadata from SQLite, scoped to the requesting user.
     Returns an empty list if the index is empty.
     """
-    raw = _memory.retrieve(request.goal, k=request.k)
+    raw = _memory.retrieve(request.goal, k=request.k, user_id=request.user_id)
     return [MemoryEntry(**m) for m in raw]
 
 
 @app.post("/store", status_code=204)
 async def store(request: StoreRequest):
     """
-    Embed and persist the goal + plan + result.
+    Embed and persist the goal + plan + result, scoped to the user.
     Returns 204 No Content — the caller doesn't need a response body.
     Failures here should never crash the caller (Orchestrator wraps in try/except).
     """
-    _memory.store(request.goal, request.plan, request.result)
-    
+    _memory.store(request.goal, request.plan, request.result, user_id=request.user_id)
+    return Response(status_code=204)
+
+
 @app.post("/users", response_model=UserResponse)
 async def create_user(req: CreateUserRequest):
     try:
@@ -65,9 +68,10 @@ async def create_user(req: CreateUserRequest):
         raise HTTPException(status_code=409, detail=str(e))
     return UserResponse(**user)
 
+
 @app.post("/users/validate", response_model=ValidateKeyResponse)
 async def validate_key(req: ValidateKeyRequest):
     user = _memory.get_user_by_api_key(req.api_key)
     if not user:
         return ValidateKeyResponse(valid=False)
-    return ValidateKeyResponse(valid=True, user_id=user["id"], name=user["name"])    
+    return ValidateKeyResponse(valid=True, user_id=user["id"], name=user["name"])
