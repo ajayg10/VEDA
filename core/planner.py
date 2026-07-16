@@ -31,6 +31,8 @@ Available tools and their parameter schemas:
   Use step_outputs[N] to read output from a prior http_request or shell_command step N.
 - no_op          → {"note": "string"}
 
+For browser_action, use {"url": "https://...", "actions": [{"action": "scrape_text", "selector": "body"}]}. Supported actions are click, type, fill_form, scrape_text, and captcha_check. Browser actions send requests externally and require confirmation.
+
 Required JSON structure:
 {
   "goal": "string",
